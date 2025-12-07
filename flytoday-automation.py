@@ -11,146 +11,76 @@ driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()))
 driver.maximize_window()
 wait = WebDriverWait(driver, 10)
 
-def close_all_popups_loop():
-
-    end_time = time.time() + 5
+def close_popups(timeout=5):
+    end_time = time.time() + timeout
     while time.time() < end_time:
-
         try:
-            iframe = driver.find_element(By.ID, "webpush-onsite")
-            driver.switch_to.frame(iframe)
-            deny_btn = driver.find_element(By.ID, "deny")
-            deny_btn.click()
+            driver.switch_to.frame(driver.find_element(By.ID, "webpush-onsite"))
+            driver.find_element(By.ID, "deny").click()
             driver.switch_to.default_content()
-            time.sleep(0.2)
         except:
             driver.switch_to.default_content()
-            pass
-
-        try:
-            buttons = driver.find_elements(By.XPATH, "//button[contains(text(),'متوجه شدم')]")
-            for btn in buttons:
-                try:
+        for xpath in ["//button[contains(text(),'متوجه شدم')]",
+                      "//button[text()='بعدی']",
+                      "//button[text()='×' or contains(@class,'close')]"]:
+            try:
+                for btn in driver.find_elements(By.XPATH, xpath):
                     btn.click()
                     time.sleep(0.2)
-                except:
-                    continue
-        except:
-            pass
+            except:
+                pass
 
-        try:
-            next_btn = driver.find_element(By.XPATH, "//button[text()='بعدی']")
-            next_btn.click()
-            time.sleep(0.2)
-        except:
-            pass
+def select_city(button_css, cities, exclude=None):
+    close_popups()
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, button_css))).click()
+    time.sleep(0.5)
+    city = random.choice(cities)
+    while city == exclude:
+        city = random.choice(cities)
+    for option in wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='option']"))):
+        if city in option.text:
+            option.click()
+            break
+    time.sleep(0.5)
+    return city
 
-        try:
-            close_buttons = driver.find_elements(By.XPATH, "//button[text()='×' or contains(@class,'close')]")
-            for btn in close_buttons:
-                try:
-                    btn.click()
-                    time.sleep(0.2)
-                except:
-                    continue
-        except:
-            pass
+def select_random_day():
+    close_popups()
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="start-date-field"]'))).click()
+    time.sleep(0.5)
+    while True:
+        close_popups()
+        days = wait.until(EC.presence_of_all_elements_located(
+            (By.CSS_SELECTOR, "button[data-test^='calendarDay-']:not([disabled])")
+        ))
+        if days:
+            driver.execute_script("arguments[0].click();", random.choice(days))
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="confirmDate"]'))).click()
+            time.sleep(0.5)
+            break
+        else:
+            wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-test='calendar-next-month']"))).click()
+            time.sleep(0.5)
 
 try:
     driver.get("https://www.flytoday.ir")
-    time.sleep(2)
-
+    time.sleep(1)
     cities = ["تهران", "مشهد", "شیراز", "کیش", "اصفهان"]
-
-    close_all_popups_loop()
-    origin_button = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="flight-origin"]'))
-    )
-    origin_button.click()
-    time.sleep(1)
-
-    origin_city = random.choice(cities)
-    origin_options = wait.until(
-        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='option']"))
-    )
-    for option in origin_options:
-        if origin_city in option.text:
-            option.click()
-            break
-    time.sleep(1)
-
-    close_all_popups_loop()
-    destination_button = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="flight-destination"]'))
-    )
-    destination_button.click()
-    time.sleep(1)
-
-    destination_city = origin_city
-    while destination_city == origin_city:
-        destination_city = random.choice(cities)
-
-    destination_options = wait.until(
-        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div[role='option']"))
-    )
-    for option in destination_options:
-        if destination_city in option.text:
-            option.click()
-            break
-    time.sleep(1)
-
-    close_all_popups_loop()
-    start_date_field = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="start-date-field"]'))
-    )
-    start_date_field.click()
-    time.sleep(2)
-
-    while True:
-        close_all_popups_loop()
-        active_days = wait.until(
-            EC.presence_of_all_elements_located(
-                (By.CSS_SELECTOR, "button[data-test^='calendarDay-']:not([disabled])")
-            )
-        )
-        if active_days:
-            day_to_click = random.choice(active_days)
-            driver.execute_script("arguments[0].click();", day_to_click)
-            time.sleep(1)
-
-            confirm_button = wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="confirmDate"]'))
-            )
-            confirm_button.click()
-            time.sleep(1)
-            break
-        else:
-            next_month = wait.until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "button[data-test='calendar-next-month']"))
-            )
-            next_month.click()
-            time.sleep(1)
-
-    close_all_popups_loop()
-    search_button = wait.until(
-        EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="flightSearchBtn"]'))
-    )
-    search_button.click()
-    time.sleep(5)
-    close_all_popups_loop()
-
+    origin = select_city('button[data-test="flight-origin"]', cities)
+    destination = select_city('button[data-test="flight-destination"]', cities, exclude=origin)
+    select_random_day()
+    close_popups()
+    wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button[data-test="flightSearchBtn"]'))).click()
+    time.sleep(3)
+    close_popups()
     try:
-        tickets = wait.until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.itinerary_wrapper__j2RSA"))
-        )
+        tickets = wait.until(EC.presence_of_all_elements_located((By.CSS_SELECTOR, "div.itinerary_wrapper__j2RSA")))
         if tickets:
-            print(f"✅🛫 Tickets available — Total: {len(tickets)} — From: {origin_city}, To: {destination_city}")
+            print(f"✅🛫 Tickets available — Total: {len(tickets)} — From: {origin}, To: {destination}")
         else:
-            print(f"❌🛬 Tickets not available — From: {origin_city}, To: {destination_city}")
+            print(f"❌🛬 Tickets not available — From: {origin}, To: {destination}")
     except:
         print("⚠️🕒 Search results not found or page did not load correctly")
-
-    time.sleep(5)
-
+    time.sleep(3)
 finally:
     driver.quit()
